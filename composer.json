@@ -1,0 +1,40 @@
+{
+    "name": "devium/processes",
+    "version": "1.0.0",
+    "description": "This package used for getting list of running processes on Windows or Unix-like systems",
+    "keywords": [
+        "ps",
+        "process",
+        "processes",
+        "windows",
+        "win",
+        "unix",
+        "linux"
+    ],
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Vano Devium",
+            "email": "vano.devium@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^7.2",
+        "symfony/process": "^5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Devium\\Processes\\": "src/"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^7 || ^8"
+    },
+    "scripts": {
+        "test": "phpunit"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
