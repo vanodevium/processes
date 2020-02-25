@@ -17,8 +17,8 @@ $pid = 1234;
 $all = true;
 
 $processes = new Processes($all);
-$processes->get() // return array of processes where key is PID
-$processes->exists($pid) // true or false
+$processes->get(); // return array of processes where key is PID
+$processes->exists($pid); // true or false
 ```
 
 ## Structure of processes array
