@@ -56,7 +56,10 @@ class ProcessesTest extends TestCase
         $this->assertIsFloat($processInformation[Processes::MEMORY]);
         $this->assertArrayHasKey(Processes::CMD, $processInformation);
         $this->assertIsString($processInformation[Processes::CMD]);
-        $this->assertGreaterThan(0, strlen($processInformation[Processes::CMD]), 'Command length');
+        // in busybox environment COMMAND is always empty
+        if ($processes->getResultType() !== Processes::BUSY_BOX_RESULT) {
+            $this->assertGreaterThan(0, strlen($processInformation[Processes::CMD]), 'Command length');
+        }
 
         $process->stop();
 

@@ -3,7 +3,7 @@
 namespace Devium\Processes;
 
 use Devium\Processes\Exceptions\LooksLikeBusyBoxException;
-use Devium\Processes\Exceptions\SkipUnixOneCall;
+use Devium\Processes\Exceptions\SkipUnixOneCallException;
 use Symfony\Component\Process\Process;
 use Throwable;
 use function count;
@@ -15,6 +15,11 @@ class Processes
     public const BUSY_BOX_MATCHES_COUNT = 7;
     public const ONE_CALL_MATCHES_COUNT = 13;
     public const MULTI_CALL_MATCHES_COUNT = 2;
+
+    public const EMPTY_RESULT = 'empty';
+    public const UNIX_RESULT = 'unit';
+    public const BUSY_BOX_RESULT = 'busybox';
+    public const WINDOWS_RESULT = 'windows';
 
     public const PID = 'pid';
     public const PPID = 'ppid';
@@ -41,6 +46,11 @@ REGEXP;
      * @var mixed[]
      */
     private $processes = [];
+
+    /**
+     * @var string
+     */
+    private $resultType = self::EMPTY_RESULT;
 
     /**
      * @param bool $all
@@ -89,6 +99,14 @@ REGEXP;
     }
 
     /**
+     * @return string
+     */
+    public function getResultType(): string
+    {
+        return $this->resultType;
+    }
+
+    /**
      * @return mixed[]
      */
     private function windows(): array
@@ -112,6 +130,7 @@ REGEXP;
         }, $output);
 
         $this->processes = $processes;
+        $this->resultType = self::WINDOWS_RESULT;
         return $this->processes;
     }
 
@@ -132,19 +151,24 @@ REGEXP;
     private function unix(bool $all = false, bool $multi = false): array
     {
         try {
-            try {
-                if ($multi === true) {
-                    throw new SkipUnixOneCall('');
-                }
-                return $this->unixOneCall($all);
-            } catch (LooksLikeBusyBoxException $e) {
-                return $this->busyBoxCall();
-            } catch (Throwable $e) {
-                return $this->unixMultiCall($all);
+            if ($multi === true) {
+                throw new SkipUnixOneCallException('');
             }
+            $this->unixOneCall($all);
         } catch (Throwable $e) {
-            return $this->processes;
+            try {
+                if ($e instanceof LooksLikeBusyBoxException) {
+                    throw $e;
+                }
+                $this->unixMultiCall();
+            } catch (LooksLikeBusyBoxException $e) {
+                $this->busyBoxCall();
+            } catch (Throwable $e) {
+
+            }
         }
+
+        return $this->processes;
     }
 
     /**
@@ -175,6 +199,7 @@ REGEXP;
         }
 
         $this->processes = $processes;
+        $this->resultType = self::BUSY_BOX_RESULT;
         return $this->processes;
     }
 
@@ -192,7 +217,7 @@ REGEXP;
 
         $output = $process->getOutput();
         $output = explode(PHP_EOL, $output);
-        $columns = array_filter(preg_split('/\s+/', $output[0]));
+        $columns = array_filter(explode(' ', $output[0]));
         if (count($columns) < count(self::COLUMNS)) {
             throw new LooksLikeBusyBoxException('');
         }
@@ -226,12 +251,14 @@ REGEXP;
         }
 
         $this->processes = $processes;
+        $this->resultType = self::UNIX_RESULT;
         return $this->processes;
     }
 
     /**
      * @param bool $all
      * @return mixed[]
+     * @throws LooksLikeBusyBoxException
      */
     private function unixMultiCall(bool $all = false): array
     {
@@ -252,7 +279,7 @@ REGEXP;
                 $line = trim($line);
                 $split = array_filter(explode(' ', $line));
                 if (self::MULTI_CALL_MATCHES_COUNT > count($split)) {
-                    continue;
+                    throw new LooksLikeBusyBoxException('');
                 }
                 $pid = (int)array_shift($split);
                 $val = trim(implode(' ', $split));
@@ -266,11 +293,12 @@ REGEXP;
         }
 
         $this->processes = $processes;
+        $this->resultType = self::UNIX_RESULT;
         return $this->processes;
     }
 
     /**
-     * @param array $processes
+     * @param mixed[] $processes
      * @param int $pid
      * @param int $ppid
      * @param int $uid
@@ -295,7 +323,7 @@ REGEXP;
     }
 
     /**
-     * @param array $processes
+     * @param mixed[] $processes
      * @param string $cmd
      * @param int $pid
      * @param mixed $val
