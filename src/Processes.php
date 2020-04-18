@@ -2,14 +2,20 @@
 
 namespace Devium\Processes;
 
+use ArrayAccess;
+use Countable;
 use Devium\Processes\Exceptions\LooksLikeBusyBoxException;
+use Devium\Processes\Exceptions\PIDCanOnlyBeAnIntegerException;
 use Devium\Processes\Exceptions\SkipUnixOneCallException;
 use Symfony\Component\Process\Process;
 use Throwable;
 use function count;
 use const DIRECTORY_SEPARATOR;
 
-class Processes
+/**
+ * @implements ArrayAccess<int, array>
+ */
+class Processes implements ArrayAccess, Countable
 {
 
     public const BUSY_BOX_MATCHES_COUNT = 7;
@@ -53,28 +59,44 @@ REGEXP;
     private $resultType = self::EMPTY_RESULT;
 
     /**
-     * @param bool $all
-     * @param bool $multi
+     * @var bool
      */
-    public function __construct(bool $all = false, bool $multi = false)
-    {
-        $this->scan($all, $multi);
-    }
+    private $all = false;
+
+    /**
+     * @var bool
+     */
+    private $multi = false;
 
     /**
      * @param bool $all
      * @param bool $multi
+     */
+    public function __construct(?bool $all = null, ?bool $multi = null)
+    {
+        $this->setScanOptions($all, $multi)->scan();
+    }
+
+    /**
      * @return Processes
      */
-    public function scan(bool $all = false, bool $multi = false): Processes
+    private function scan(): Processes
     {
         if ('\\' === DIRECTORY_SEPARATOR) {
             $this->windows();
         } else {
-            $this->unix($all, $multi);
+            $this->unix($this->all, $this->multi);
         }
 
         return $this;
+    }
+
+    /**
+     * @return Processes
+     */
+    public function rescan(): Processes
+    {
+        return $this->scan();
     }
 
     /**
@@ -86,16 +108,19 @@ REGEXP;
     }
 
     /**
-     * @param null|int $pid
+     * @param null|mixed $pid
      * @return bool
+     * @throws PIDCanOnlyBeAnIntegerException
      */
-    public function exists(?int $pid = null): bool
+    public function exists($pid = null): bool
     {
         if (null === $pid) {
             return false;
         }
 
-        return isset($this->get()[$pid]);
+        $this->validatePID($pid);
+
+        return null !== $this->processes[$pid];
     }
 
     /**
@@ -104,6 +129,30 @@ REGEXP;
     public function getResultType(): string
     {
         return $this->resultType;
+    }
+
+    /**
+     * @param mixed $pid
+     * @throws PIDCanOnlyBeAnIntegerException
+     */
+    private function validatePID($pid): void
+    {
+        if (!is_int($pid)) {
+            throw new PIDCanOnlyBeAnIntegerException();
+        }
+    }
+
+    /**
+     * @param bool|null $all
+     * @param bool|null $multi
+     * @return Processes
+     */
+    private function setScanOptions(?bool $all, ?bool $multi): Processes
+    {
+        $this->all = (bool)$all;
+        $this->multi = (bool)$multi;
+
+        return $this;
     }
 
     /**
@@ -129,9 +178,7 @@ REGEXP;
             ];
         }, $output);
 
-        $this->processes = $processes;
-        $this->resultType = self::WINDOWS_RESULT;
-        return $this->processes;
+        return $this->setProcesses($processes, self::WINDOWS_RESULT);
     }
 
     /**
@@ -152,7 +199,7 @@ REGEXP;
     {
         try {
             if ($multi === true) {
-                throw new SkipUnixOneCallException('');
+                throw new SkipUnixOneCallException();
             }
             $this->unixOneCall($all);
         } catch (Throwable $e) {
@@ -160,7 +207,7 @@ REGEXP;
                 if ($e instanceof LooksLikeBusyBoxException) {
                     throw $e;
                 }
-                $this->unixMultiCall();
+                $this->unixMultiCall($all);
             } catch (LooksLikeBusyBoxException $e) {
                 $this->busyBoxCall();
             } catch (Throwable $e) {
@@ -198,9 +245,7 @@ REGEXP;
             }
         }
 
-        $this->processes = $processes;
-        $this->resultType = self::BUSY_BOX_RESULT;
-        return $this->processes;
+        return $this->setProcesses($processes, self::BUSY_BOX_RESULT);
     }
 
     /**
@@ -217,9 +262,9 @@ REGEXP;
 
         $output = $process->getOutput();
         $output = explode(PHP_EOL, $output);
-        $columns = array_filter(explode(' ', $output[0]));
+        $columns = $this->split($output[0]);
         if (count($columns) < count(self::COLUMNS)) {
-            throw new LooksLikeBusyBoxException('');
+            throw new LooksLikeBusyBoxException();
         }
         $startIndex = strpos($output[0], self::COMMAND_TITLE);
         $endIndex = strpos($output[0], self::COMMAND_TITLE, $startIndex + 1);
@@ -250,9 +295,7 @@ REGEXP;
             }
         }
 
-        $this->processes = $processes;
-        $this->resultType = self::UNIX_RESULT;
-        return $this->processes;
+        return $this->setProcesses($processes, self::UNIX_RESULT);
     }
 
     /**
@@ -277,9 +320,12 @@ REGEXP;
 
             foreach ($output as $line) {
                 $line = trim($line);
-                $split = array_filter(explode(' ', $line));
+                if (!$line) {
+                    continue;
+                }
+                $split = $this->split($line);
                 if (self::MULTI_CALL_MATCHES_COUNT > count($split)) {
-                    throw new LooksLikeBusyBoxException('');
+                    throw new LooksLikeBusyBoxException();
                 }
                 $pid = (int)array_shift($split);
                 $val = trim(implode(' ', $split));
@@ -292,8 +338,19 @@ REGEXP;
             }
         }
 
+        return $this->setProcesses($processes, self::UNIX_RESULT);
+    }
+
+    /**
+     * @param array<int, mixed> $processes
+     * @param string $type
+     * @return mixed[]
+     */
+    private function setProcesses(array $processes, string $type): array
+    {
         $this->processes = $processes;
-        $this->resultType = self::UNIX_RESULT;
+        $this->resultType = $type;
+
         return $this->processes;
     }
 
@@ -350,5 +407,63 @@ REGEXP;
                 $processes[$pid][self::CMD] = trim($val);
                 break;
         }
+    }
+
+    /**
+     * @param mixed $line
+     * @return mixed[]
+     */
+    private function split($line): array
+    {
+        return array_filter(explode(' ', $line), static function ($item) {
+            return $item !== '';
+        });
+    }
+
+    /**
+     * @param mixed $offset
+     * @return bool
+     */
+    public function offsetExists($offset): bool
+    {
+        return isset($this->processes[$offset]);
+    }
+
+    /**
+     * @param mixed $offset
+     * @return null|mixed
+     */
+    public function offsetGet($offset)
+    {
+        return $this->processes[$offset] ?? null;
+    }
+
+    /**
+     * @param mixed $offset
+     * @param mixed $value
+     */
+    public function offsetSet($offset, $value): void
+    {
+        if ($offset === null) {
+            $this->processes[] = $value;
+        } else {
+            $this->processes[$offset] = $value;
+        }
+    }
+
+    /**
+     * @param mixed $offset
+     */
+    public function offsetUnset($offset): void
+    {
+        unset($this->processes[$offset]);
+    }
+
+    /**
+     * @return int
+     */
+    public function count(): int
+    {
+        return count($this->processes);
     }
 }

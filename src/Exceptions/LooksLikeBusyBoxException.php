@@ -6,5 +6,8 @@ use Exception;
 
 class LooksLikeBusyBoxException extends Exception
 {
-
+    public function __construct()
+    {
+        parent::__construct('Looks like Busy Box', 0, null);
+    }
 }

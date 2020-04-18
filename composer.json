@@ -1,6 +1,5 @@
 {
     "name": "devium/processes",
-    "version": "1.0.1",
     "description": "This package used for getting list of running processes on Windows or Unix-like systems",
     "keywords": [
         "ps",

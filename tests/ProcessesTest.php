@@ -1,5 +1,6 @@
 <?php
 
+use Devium\Processes\Exceptions\PIDCanOnlyBeAnIntegerException;
 use PHPUnit\Framework\TestCase;
 use Devium\Processes\Processes;
 use Symfony\Component\Process\Process;
@@ -11,16 +12,17 @@ class ProcessesTest extends TestCase
 
     /**
      * @dataProvider processesArgumentsProvider
-     * @param bool $all
-     * @param bool $multi
+     * @param null|bool $all
+     * @param null|bool $multi
+     * @throws PIDCanOnlyBeAnIntegerException
      */
-    public function testProcessesOnUnix(bool $all, bool $multi): void
+    public function testProcessesOnUnix(?bool $all, ?bool $multi): void
     {
         if ('\\' === DIRECTORY_SEPARATOR) {
-            $this->markTestSkipped('This test run only on Unix');
+            $this->markTestSkipped('This test runs only on Unix');
         }
 
-        $process = new Process(['tests/bin/while.exe']);
+        $process = new Process(['tests/bin/while']);
 
         $process->start();
         $this->pid = $process->getPid();
@@ -35,14 +37,14 @@ class ProcessesTest extends TestCase
         $this->assertFalse($processes->exists(null));
         $this->assertTrue($processes->exists($this->pid));
 
-        $processInformation = $processes->get()[$this->pid];
+        $processInformation = $processes[$this->pid];
 
         $this->assertArrayHasKey(Processes::PID, $processInformation);
         $this->assertIsInt($processInformation[Processes::PID]);
         $this->assertGreaterThan(0, $processInformation[Processes::PID], 'PID');
         $this->assertArrayHasKey(Processes::PPID, $processInformation);
         $this->assertIsInt($processInformation[Processes::PPID]);
-        $this->assertGreaterThan(0, $processInformation[Processes::PPID], 'PPID');
+        $this->assertGreaterThanOrEqual(0, $processInformation[Processes::PPID], 'PPID');
         $this->assertArrayHasKey(Processes::NAME, $processInformation);
         $this->assertIsString($processInformation[Processes::NAME]);
         $this->assertGreaterThan(0, strlen($processInformation[Processes::NAME]), 'Name length');
@@ -66,11 +68,17 @@ class ProcessesTest extends TestCase
         $this->assertNull($process->getPid());
         $this->assertFalse($process->isRunning());
         $this->assertTrue($process->isTerminated());
+
+        $this->assertGreaterThanOrEqual(count($processes->rescan()), count($processes));
+
+        $this->expectException(PIDCanOnlyBeAnIntegerException::class);
+        $processes->exists('string');
     }
 
     public function processesArgumentsProvider(): array
     {
         return [
+            [null, null],
             [true, false],
             [true, true],
             [false, false],
@@ -78,10 +86,13 @@ class ProcessesTest extends TestCase
         ];
     }
 
+    /**
+     * @throws PIDCanOnlyBeAnIntegerException
+     */
     public function testProcessesOnWindows(): void
     {
         if ('\\' !== DIRECTORY_SEPARATOR) {
-            $this->markTestSkipped('This test run only on Windows');
+            $this->markTestSkipped('This test runs only on Windows');
         }
 
         $process = new Process(['tests/bin/while.exe']);

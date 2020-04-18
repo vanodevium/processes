@@ -24,8 +24,8 @@ $processes = new Processes($all);
 $exists = $processes->exists($pid); // return true of false
 $arrayOfProcesses = $processes->get(); // return array of processes where key is PID
 
-// for rescanning processes, call scan() method
-$newArrayOfProcesses = $processes->scan($all)->get();
+// for rescanning processes, call rescan() method
+$newArrayOfProcesses = $processes->rescan()->get();
 ```
 
 ## Structure of processes array
