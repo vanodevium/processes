@@ -433,6 +433,7 @@ REGEXP;
      * @param mixed $offset
      * @return null|mixed
      */
+    #[\ReturnTypeWillChange]
     public function offsetGet($offset)
     {
         return $this->processes[$offset] ?? null;
