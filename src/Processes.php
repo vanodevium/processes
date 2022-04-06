@@ -10,7 +10,6 @@ use Devium\Processes\Exceptions\SkipUnixOneCallException;
 use Symfony\Component\Process\Process;
 use Throwable;
 use function count;
-use const DIRECTORY_SEPARATOR;
 
 /**
  * @implements ArrayAccess<int, array>
@@ -82,7 +81,9 @@ REGEXP;
      */
     private function scan(): Processes
     {
-        if ('\\' === DIRECTORY_SEPARATOR) {
+        if (stristr(PHP_OS, 'DARWIN')) {
+            $this->mac($this->all);
+        } elseif (stristr(PHP_OS, 'WIN')) {
             $this->windows();
         } else {
             $this->unix($this->all, $this->multi);
@@ -179,6 +180,44 @@ REGEXP;
         }, $output);
 
         return $this->setProcesses($processes, self::WINDOWS_RESULT);
+    }
+
+    /**
+     * @return mixed[]
+     */
+    private function mac(bool $all = false): array
+    {
+        $processes = [];
+
+        $process = new Process(['ps', $this->getFlags($all), implode(',', self::COLUMNS)]);
+        $process->run();
+
+        $output = $process->getOutput();
+        $output = explode(PHP_EOL, $output);
+        $nameStart = strpos($output[0], 'COMM');
+        $cmdStart = strpos($output[0], 'ARGS');
+        $nameLen = $cmdStart - $nameStart - 1;
+        array_shift($output);
+
+        foreach ($output as $line) {
+            preg_match(self::REGEX, $line, $matches);
+            try {
+                $this->fillProcessValues(
+                    $processes,
+                    (int)$matches[self::PID],
+                    (int)$matches[self::PPID],
+                    (int)$matches[self::UID],
+                    (float)$matches[self::CPU],
+                    (float)$matches[self::MEMORY],
+                    substr($line, $nameStart, $nameLen),
+                    substr($line, $cmdStart)
+                );
+            } catch (Throwable $e) {
+
+            }
+        }
+
+        return $this->setProcesses($processes, self::UNIX_RESULT);
     }
 
     /**
