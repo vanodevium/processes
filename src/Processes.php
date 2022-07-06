@@ -10,7 +10,6 @@ use Devium\Processes\Exceptions\SkipUnixOneCallException;
 use Symfony\Component\Process\Process;
 use Throwable;
 use function count;
-use const DIRECTORY_SEPARATOR;
 
 /**
  * @implements ArrayAccess<int, array>
@@ -37,19 +36,22 @@ class Processes implements ArrayAccess, Countable
     public const MEM_P = '%mem';
     public const MEMORY = 'memory';
     public const COMM = 'comm';
+    public const COMM_MAC = 'COMM';
     public const ARGS = 'args';
+    public const ARGS_MAC = 'ARGS';
     public const COMM_AND_ARGS = 'commAndArgs';
     public const COMMAND_TITLE = 'COMMAND';
 
     public const COLUMNS = [self::PID, self::PPID, self::UID, self::CPU_P, self::MEM_P, self::COMM, self::ARGS];
     public const REGEX = <<<REGEXP
-/^[\s]*(?<pid>\d+)[\s]+(?<ppid>\d+)[\s]+(?<uid>\d+)[\s]+(?<cpu>\d+\.\d+)[\s]+(?<memory>\d+\.\d+)[\s]+(?<commAndArgs>.*)/
+/^\s*(?<pid>\d+)\s+(?<ppid>\d+)\s+(?<uid>\d+)\s+(?<cpu>\d+\.\d+)\s+(?<memory>\d+\.\d+)\s+(?<commAndArgs>.*)/
+REGEXP;
+    public const SHORT_REGEX = <<<REGEXP
+/^\s*(?<pid>\d+)\s+(?<ppid>\d+)\s+(?<cmd>.*)/
 REGEXP;
 
-    public const SHORT_REGEX = '/^[\s]*(?<pid>\d+)[\s]+(?<ppid>\d+)[\s]+(?<cmd>.*)/';
-
     /**
-     * @var mixed[]
+     * @var array
      */
     private $processes = [];
 
@@ -82,10 +84,15 @@ REGEXP;
      */
     private function scan(): Processes
     {
-        if ('\\' === DIRECTORY_SEPARATOR) {
-            $this->windows();
-        } else {
-            $this->unix($this->all, $this->multi);
+        switch (PHP_OS_FAMILY) {
+            case 'Darwin':
+                $this->mac($this->all);
+                break;
+            case 'Windows':
+                $this->windows();
+                break;
+            default:
+                $this->unix($this->all, $this->multi);
         }
 
         return $this;
@@ -100,7 +107,7 @@ REGEXP;
     }
 
     /**
-     * @return mixed[]
+     * @return array
      */
     public function get(): array
     {
@@ -156,9 +163,9 @@ REGEXP;
     }
 
     /**
-     * @return mixed[]
+     * @return void
      */
-    private function windows(): array
+    private function windows(): void
     {
         $processes = [];
 
@@ -178,7 +185,46 @@ REGEXP;
             ];
         }, $output);
 
-        return $this->setProcesses($processes, self::WINDOWS_RESULT);
+        $this->setProcesses($processes, self::WINDOWS_RESULT);
+    }
+
+    /**
+     * @param bool $all
+     * @return void
+     */
+    private function mac(bool $all = false): void
+    {
+        $processes = [];
+
+        $process = new Process(['ps', $this->getFlags($all), implode(',', self::COLUMNS)]);
+        $process->run();
+
+        $output = $process->getOutput();
+        $output = explode(PHP_EOL, $output);
+        $nameStart = strpos($output[0], self::COMM_MAC);
+        $cmdStart = strpos($output[0], self::ARGS_MAC);
+        $nameLen = $cmdStart - $nameStart - 1;
+        array_shift($output);
+
+        foreach ($output as $line) {
+            preg_match(self::REGEX, $line, $matches);
+            try {
+                $this->fillProcessValues(
+                    $processes,
+                    (int)$matches[self::PID],
+                    (int)$matches[self::PPID],
+                    (int)$matches[self::UID],
+                    (float)$matches[self::CPU],
+                    (float)$matches[self::MEMORY],
+                    substr($line, $nameStart, $nameLen),
+                    substr($line, $cmdStart)
+                );
+            } catch (Throwable $e) {
+
+            }
+        }
+
+        $this->setProcesses($processes, self::UNIX_RESULT);
     }
 
     /**
@@ -193,9 +239,9 @@ REGEXP;
     /**
      * @param bool $all
      * @param bool $multi
-     * @return mixed[]
+     * @return void
      */
-    private function unix(bool $all = false, bool $multi = false): array
+    private function unix(bool $all = false, bool $multi = false): void
     {
         try {
             if ($multi === true) {
@@ -215,13 +261,12 @@ REGEXP;
             }
         }
 
-        return $this->processes;
     }
 
     /**
-     * @return mixed[]
+     * @return void
      */
-    private function busyBoxCall(): array
+    private function busyBoxCall(): void
     {
         $processes = [];
 
@@ -245,15 +290,15 @@ REGEXP;
             }
         }
 
-        return $this->setProcesses($processes, self::BUSY_BOX_RESULT);
+        $this->setProcesses($processes, self::BUSY_BOX_RESULT);
     }
 
     /**
      * @param bool $all
-     * @return mixed[]
+     * @return void
      * @throws LooksLikeBusyBoxException
      */
-    private function unixOneCall(bool $all = false): array
+    private function unixOneCall(bool $all = false): void
     {
         $processes = [];
 
@@ -295,15 +340,15 @@ REGEXP;
             }
         }
 
-        return $this->setProcesses($processes, self::UNIX_RESULT);
+        $this->setProcesses($processes, self::UNIX_RESULT);
     }
 
     /**
      * @param bool $all
-     * @return mixed[]
+     * @return void
      * @throws LooksLikeBusyBoxException
      */
-    private function unixMultiCall(bool $all = false): array
+    private function unixMultiCall(bool $all = false): void
     {
         $processes = [];
 
@@ -311,7 +356,7 @@ REGEXP;
             if (self::PID === $cmd) {
                 continue;
             }
-            $process = new Process(['ps', $this->getFlags($all), self::PID . ",${cmd}"]);
+            $process = new Process(['ps', $this->getFlags($all), self::PID . ",$cmd"]);
             $process->run();
 
             $output = $process->getOutput();
@@ -338,24 +383,22 @@ REGEXP;
             }
         }
 
-        return $this->setProcesses($processes, self::UNIX_RESULT);
+        $this->setProcesses($processes, self::UNIX_RESULT);
     }
 
     /**
      * @param array<int, mixed> $processes
      * @param string $type
-     * @return mixed[]
+     * @return void
      */
-    private function setProcesses(array $processes, string $type): array
+    private function setProcesses(array $processes, string $type): void
     {
         $this->processes = $processes;
         $this->resultType = $type;
-
-        return $this->processes;
     }
 
     /**
-     * @param mixed[] $processes
+     * @param array $processes
      * @param int $pid
      * @param int $ppid
      * @param int $uid
@@ -380,7 +423,7 @@ REGEXP;
     }
 
     /**
-     * @param mixed[] $processes
+     * @param array $processes
      * @param string $cmd
      * @param int $pid
      * @param mixed $val
@@ -411,7 +454,7 @@ REGEXP;
 
     /**
      * @param mixed $line
-     * @return mixed[]
+     * @return array
      */
     private function split($line): array
     {

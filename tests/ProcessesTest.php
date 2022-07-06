@@ -18,7 +18,7 @@ class ProcessesTest extends TestCase
      */
     public function testProcessesOnUnix(?bool $all, ?bool $multi): void
     {
-        if ('\\' === DIRECTORY_SEPARATOR) {
+        if (PHP_OS_FAMILY !== 'Linux') {
             $this->markTestSkipped('This test runs only on Unix');
         }
 
@@ -34,7 +34,7 @@ class ProcessesTest extends TestCase
 
         $processes = new Processes($all, $multi);
 
-        $this->assertFalse($processes->exists(null));
+        $this->assertFalse($processes->exists());
         $this->assertTrue($processes->exists($this->pid));
 
         $processInformation = $processes[$this->pid];
@@ -89,9 +89,49 @@ class ProcessesTest extends TestCase
     /**
      * @throws PIDCanOnlyBeAnIntegerException
      */
+    public function testProcessesOnDarwin(): void
+    {
+        if (PHP_OS_FAMILY !== 'Darwin') {
+            $this->markTestSkipped('This test runs only on Darwin');
+        }
+
+        $process = new Process(['tests/bin/while_darwin']);
+
+        $process->start();
+        $this->pid = $process->getPid();
+
+        $this->assertTrue($process->isStarted());
+        $this->assertFalse($process->isTerminated());
+
+        $this->assertGreaterThan(0, $this->pid);
+
+        $processes = new Processes(true);
+
+        $this->assertFalse($processes->exists());
+        $this->assertTrue($processes->exists($this->pid));
+
+        $processInformation = $processes->get()[$this->pid];
+
+        $this->assertArrayHasKey(Processes::PID, $processInformation);
+        $this->assertIsInt($processInformation[Processes::PID]);
+        $this->assertArrayHasKey(Processes::PPID, $processInformation);
+        $this->assertIsInt($processInformation[Processes::PPID]);
+        $this->assertArrayHasKey(Processes::NAME, $processInformation);
+        $this->assertIsString($processInformation[Processes::NAME]);
+
+        $process->stop();
+
+        $this->assertNull($process->getPid());
+        $this->assertFalse($process->isRunning());
+        $this->assertTrue($process->isTerminated());
+    }
+
+    /**
+     * @throws PIDCanOnlyBeAnIntegerException
+     */
     public function testProcessesOnWindows(): void
     {
-        if ('\\' !== DIRECTORY_SEPARATOR) {
+        if (PHP_OS_FAMILY !== 'Windows') {
             $this->markTestSkipped('This test runs only on Windows');
         }
 
@@ -107,7 +147,7 @@ class ProcessesTest extends TestCase
 
         $processes = new Processes(true);
 
-        $this->assertFalse($processes->exists(null));
+        $this->assertFalse($processes->exists());
         $this->assertTrue($processes->exists($this->pid));
 
         $processInformation = $processes->get()[$this->pid];

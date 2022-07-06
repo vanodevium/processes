@@ -15,7 +15,8 @@
     "authors": [
         {
             "name": "Vano Devium",
-            "email": "vano.devium@gmail.com"
+            "email": "vano@devium.me",
+            "homepage": "https://www.devium.me/"
         }
     ],
     "require": {
