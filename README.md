@@ -1,4 +1,9 @@
-# Devium\Processes [![Build Status](https://travis-ci.org/vanodevium/processes.svg?branch=master)](https://travis-ci.org/vanodevium/processes)
+# Devium\Processes
+
+![Build status](https://img.shields.io/travis/vanodevium/processes/master)
+![Latest Version](https://img.shields.io/packagist/v/devium/processes)
+![License](https://img.shields.io/packagist/l/devium/processes)
+![Downloads](https://img.shields.io/packagist/dt/devium/processes)
 
 This package used for getting list of running processes on Windows or Unix-like systems
 
