@@ -18,8 +18,8 @@ class ProcessesTest extends TestCase
      */
     public function testProcessesOnUnix(?bool $all, ?bool $multi): void
     {
-        if (PHP_OS_FAMILY !== 'Linux') {
-            $this->markTestSkipped('This test runs only on Unix');
+        if (!$this->checkOS(Processes::LINUX)) {
+            $this->markTestSkipped('This test runs only on Linux');
         }
 
         $process = new Process(['tests/bin/while']);
@@ -91,7 +91,7 @@ class ProcessesTest extends TestCase
      */
     public function testProcessesOnDarwin(): void
     {
-        if (PHP_OS_FAMILY !== 'Darwin') {
+        if (!$this->checkOS(Processes::DARWIN)) {
             $this->markTestSkipped('This test runs only on Darwin');
         }
 
@@ -131,7 +131,7 @@ class ProcessesTest extends TestCase
      */
     public function testProcessesOnWindows(): void
     {
-        if (PHP_OS_FAMILY !== 'Windows') {
+        if (!$this->checkOS(Processes::WINDOWS)) {
             $this->markTestSkipped('This test runs only on Windows');
         }
 
@@ -164,5 +164,14 @@ class ProcessesTest extends TestCase
         $this->assertNull($process->getPid());
         $this->assertFalse($process->isRunning());
         $this->assertTrue($process->isTerminated());
+    }
+
+    /**
+     * @param string $os
+     * @return bool
+     */
+    protected function checkOS(string $os): bool
+    {
+        return strtolower(PHP_OS_FAMILY) === $os;
     }
 }

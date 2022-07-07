@@ -1,6 +1,6 @@
 {
     "name": "devium/processes",
-    "description": "This package used for getting list of running processes on Windows or Unix-like systems",
+    "description": "This package is used to get a list of running processes on Windows or Unix-like systems, even Darwin",
     "keywords": [
         "ps",
         "process",
@@ -8,7 +8,9 @@
         "windows",
         "win",
         "unix",
-        "linux"
+        "linux",
+        "macos",
+        "darwin"
     ],
     "type": "library",
     "license": "MIT",

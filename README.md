@@ -5,7 +5,7 @@
 ![License](https://img.shields.io/packagist/l/devium/processes)
 ![Downloads](https://img.shields.io/packagist/dt/devium/processes)
 
-This package used for getting list of running processes on Windows or Unix-like systems
+This package is used to get a list of running processes on Windows or Unix-like systems, even Darwin.
 
 > Thanks to [fastlist](https://github.com/MarkTiedemann/fastlist) for processes on Windows.
 

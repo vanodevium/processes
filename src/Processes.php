@@ -21,8 +21,12 @@ class Processes implements ArrayAccess, Countable
     public const ONE_CALL_MATCHES_COUNT = 13;
     public const MULTI_CALL_MATCHES_COUNT = 2;
 
+    public const LINUX = 'linux';
+    public const WINDOWS = 'windows';
+    public const DARWIN = 'darwin';
+
     public const EMPTY_RESULT = 'empty';
-    public const UNIX_RESULT = 'unit';
+    public const UNIX_RESULT = 'unix';
     public const BUSY_BOX_RESULT = 'busybox';
     public const WINDOWS_RESULT = 'windows';
 
@@ -51,7 +55,7 @@ REGEXP;
 REGEXP;
 
     /**
-     * @var array
+     * @var array<int, array>
      */
     private $processes = [];
 
@@ -80,21 +84,25 @@ REGEXP;
     }
 
     /**
+     * @return string
+     */
+    private function detectOS(): string {
+        switch (strtolower(PHP_OS_FAMILY)) {
+            case self::DARWIN:
+                return self::DARWIN;
+            case self::WINDOWS:
+                return self::WINDOWS;
+            default:
+                return self::LINUX;
+        }
+    }
+
+    /**
      * @return Processes
      */
     private function scan(): Processes
     {
-        switch (PHP_OS_FAMILY) {
-            case 'Darwin':
-                $this->mac($this->all);
-                break;
-            case 'Windows':
-                $this->windows();
-                break;
-            default:
-                $this->unix($this->all, $this->multi);
-        }
-
+        $this->{$this->detectOS()}();
         return $this;
     }
 
@@ -107,7 +115,7 @@ REGEXP;
     }
 
     /**
-     * @return array
+     * @return array<int, array>
      */
     public function get(): array
     {
@@ -156,10 +164,28 @@ REGEXP;
      */
     private function setScanOptions(?bool $all, ?bool $multi): Processes
     {
-        $this->all = (bool)$all;
-        $this->multi = (bool)$multi;
+        $this->setAllProperty($all);
+        $this->setMultiProperty($multi);
 
         return $this;
+    }
+
+    /**
+     * @param bool|null $all
+     * @return void
+     */
+    private function setAllProperty(?bool $all): void
+    {
+        $this->all = (bool)$all;
+    }
+
+    /**
+     * @param bool|null $multi
+     * @return void
+     */
+    private function setMultiProperty(?bool $multi): void
+    {
+        $this->multi = (bool)$multi;
     }
 
     /**
@@ -189,20 +215,19 @@ REGEXP;
     }
 
     /**
-     * @param bool $all
      * @return void
      */
-    private function mac(bool $all = false): void
+    private function darwin(): void
     {
         $processes = [];
 
-        $process = new Process(['ps', $this->getFlags($all), implode(',', self::COLUMNS)]);
+        $process = new Process(['ps', $this->getFlags($this->all), implode(',', self::COLUMNS)]);
         $process->run();
 
         $output = $process->getOutput();
         $output = explode(PHP_EOL, $output);
-        $nameStart = strpos($output[0], self::COMM_MAC);
-        $cmdStart = strpos($output[0], self::ARGS_MAC);
+        $nameStart = strpos($output[0], self::COMM_MAC) ?: 0;
+        $cmdStart = strpos($output[0], self::ARGS_MAC) ?: 0;
         $nameLen = $cmdStart - $nameStart - 1;
         array_shift($output);
 
@@ -237,23 +262,21 @@ REGEXP;
     }
 
     /**
-     * @param bool $all
-     * @param bool $multi
      * @return void
      */
-    private function unix(bool $all = false, bool $multi = false): void
+    private function linux(): void
     {
         try {
-            if ($multi === true) {
+            if ($this->multi === true) {
                 throw new SkipUnixOneCallException();
             }
-            $this->unixOneCall($all);
+            $this->unixOneCall($this->all);
         } catch (Throwable $e) {
             try {
                 if ($e instanceof LooksLikeBusyBoxException) {
                     throw $e;
                 }
-                $this->unixMultiCall($all);
+                $this->unixMultiCall($this->all);
             } catch (LooksLikeBusyBoxException $e) {
                 $this->busyBoxCall();
             } catch (Throwable $e) {
@@ -387,7 +410,7 @@ REGEXP;
     }
 
     /**
-     * @param array<int, mixed> $processes
+     * @param array<int, array> $processes
      * @param string $type
      * @return void
      */
@@ -398,7 +421,7 @@ REGEXP;
     }
 
     /**
-     * @param array $processes
+     * @param array<int, array> $processes
      * @param int $pid
      * @param int $ppid
      * @param int $uid
@@ -423,7 +446,7 @@ REGEXP;
     }
 
     /**
-     * @param array $processes
+     * @param array<int, array> $processes
      * @param string $cmd
      * @param int $pid
      * @param mixed $val
@@ -454,7 +477,7 @@ REGEXP;
 
     /**
      * @param mixed $line
-     * @return array
+     * @return string[]
      */
     private function split($line): array
     {
