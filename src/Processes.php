@@ -9,6 +9,7 @@ use Devium\Processes\Exceptions\PIDCanOnlyBeAnIntegerException;
 use Devium\Processes\Exceptions\SkipUnixOneCallException;
 use Symfony\Component\Process\Process;
 use Throwable;
+
 use function count;
 
 /**
@@ -16,7 +17,6 @@ use function count;
  */
 class Processes implements ArrayAccess, Countable
 {
-
     public const BUSY_BOX_MATCHES_COUNT = 7;
     public const ONE_CALL_MATCHES_COUNT = 13;
     public const MULTI_CALL_MATCHES_COUNT = 2;
@@ -55,7 +55,7 @@ REGEXP;
 REGEXP;
 
     /**
-     * @var array<int, array>
+     * @var array<int|string, array<mixed>>
      */
     private $processes = [];
 
@@ -84,29 +84,6 @@ REGEXP;
     }
 
     /**
-     * @return string
-     */
-    private function detectOS(): string {
-        switch (strtolower(PHP_OS_FAMILY)) {
-            case self::DARWIN:
-                return self::DARWIN;
-            case self::WINDOWS:
-                return self::WINDOWS;
-            default:
-                return self::LINUX;
-        }
-    }
-
-    /**
-     * @return Processes
-     */
-    private function scan(): Processes
-    {
-        $this->{$this->detectOS()}();
-        return $this;
-    }
-
-    /**
      * @return Processes
      */
     public function rescan(): Processes
@@ -115,11 +92,19 @@ REGEXP;
     }
 
     /**
-     * @return array<int, array>
+     * @return array<int|string, array<mixed>>
      */
     public function get(): array
     {
         return $this->processes;
+    }
+
+    /**
+     * @return array<int|string, array<mixed>>
+     */
+    public function toArray(): array
+    {
+        return $this->get();
     }
 
     /**
@@ -144,6 +129,90 @@ REGEXP;
     public function getResultType(): string
     {
         return $this->resultType;
+    }
+
+    /**
+     * @param mixed $offset
+     * @return bool
+     */
+    public function offsetExists($offset): bool
+    {
+        return isset($this->processes[$offset]);
+    }
+
+    /**
+     * @param mixed $offset
+     * @return null|mixed
+     */
+    #[\ReturnTypeWillChange]
+    public function offsetGet($offset)
+    {
+        return $this->processes[$offset] ?? null;
+    }
+
+    /**
+     * @param mixed $offset
+     * @param mixed $value
+     */
+    public function offsetSet($offset, $value): void
+    {
+        if ($offset === null) {
+            $this->processes[] = $value;
+        } else {
+            $this->processes[$offset] = $value;
+        }
+    }
+
+    /**
+     * @param mixed $offset
+     */
+    public function offsetUnset($offset): void
+    {
+        unset($this->processes[$offset]);
+    }
+
+    /**
+     * @return int
+     */
+    public function count(): int
+    {
+        return count($this->processes);
+    }
+
+    /**
+     * @param bool $all
+     * @return string
+     */
+    protected function getFlags(bool $all = false): string
+    {
+        return ($all ? 'a' : '') . 'wwxo';
+    }
+
+    /**
+     * @return string
+     */
+    private function detectOS(): string
+    {
+        switch (strtolower(PHP_OS_FAMILY)) {
+            case self::DARWIN:
+                return self::DARWIN;
+            case self::WINDOWS:
+                return self::WINDOWS;
+            default:
+                return self::LINUX;
+        }
+    }
+
+    /**
+     * @return Processes
+     * @uses self::windows()
+     * @uses self::linux()
+     * @uses self::darwin()
+     */
+    private function scan(): Processes
+    {
+        $this->{$this->detectOS()}();
+        return $this;
     }
 
     /**
@@ -245,20 +314,10 @@ REGEXP;
                     substr($line, $cmdStart)
                 );
             } catch (Throwable $e) {
-
             }
         }
 
         $this->setProcesses($processes, self::UNIX_RESULT);
-    }
-
-    /**
-     * @param bool $all
-     * @return string
-     */
-    protected function getFlags(bool $all = false): string
-    {
-        return ($all ? 'a' : '') . 'wwxo';
     }
 
     /**
@@ -280,10 +339,8 @@ REGEXP;
             } catch (LooksLikeBusyBoxException $e) {
                 $this->busyBoxCall();
             } catch (Throwable $e) {
-
             }
         }
-
     }
 
     /**
@@ -309,7 +366,6 @@ REGEXP;
                 $pid = (int)$matches[self::PID];
                 $this->fillProcessValues($processes, $pid, (int)$matches[self::PPID], 0, 0, 0, $matches[self::CMD], '');
             } catch (Throwable $e) {
-
             }
         }
 
@@ -359,7 +415,6 @@ REGEXP;
                     $cmd
                 );
             } catch (Throwable $e) {
-
             }
         }
 
@@ -410,7 +465,7 @@ REGEXP;
     }
 
     /**
-     * @param array<int, array> $processes
+     * @param array<int, array<mixed>> $processes
      * @param string $type
      * @return void
      */
@@ -421,7 +476,7 @@ REGEXP;
     }
 
     /**
-     * @param array<int, array> $processes
+     * @param array<int, array<mixed>> $processes
      * @param int $pid
      * @param int $ppid
      * @param int $uid
@@ -431,9 +486,15 @@ REGEXP;
      * @param string $command
      */
     private function fillProcessValues(
-        array &$processes, int $pid, int $ppid, int $uid, float $cpu, float $memory, string $name, string $command
-    ): void
-    {
+        array &$processes,
+        int $pid,
+        int $ppid,
+        int $uid,
+        float $cpu,
+        float $memory,
+        string $name,
+        string $command
+    ): void {
         $processes[$pid] = [
             self::PID => $pid,
             self::PPID => $ppid,
@@ -446,7 +507,7 @@ REGEXP;
     }
 
     /**
-     * @param array<int, array> $processes
+     * @param array<int, array<mixed>> $processes
      * @param string $cmd
      * @param int $pid
      * @param mixed $val
@@ -484,53 +545,5 @@ REGEXP;
         return array_filter(explode(' ', $line), static function ($item) {
             return $item !== '';
         });
-    }
-
-    /**
-     * @param mixed $offset
-     * @return bool
-     */
-    public function offsetExists($offset): bool
-    {
-        return isset($this->processes[$offset]);
-    }
-
-    /**
-     * @param mixed $offset
-     * @return null|mixed
-     */
-    #[\ReturnTypeWillChange]
-    public function offsetGet($offset)
-    {
-        return $this->processes[$offset] ?? null;
-    }
-
-    /**
-     * @param mixed $offset
-     * @param mixed $value
-     */
-    public function offsetSet($offset, $value): void
-    {
-        if ($offset === null) {
-            $this->processes[] = $value;
-        } else {
-            $this->processes[$offset] = $value;
-        }
-    }
-
-    /**
-     * @param mixed $offset
-     */
-    public function offsetUnset($offset): void
-    {
-        unset($this->processes[$offset]);
-    }
-
-    /**
-     * @return int
-     */
-    public function count(): int
-    {
-        return count($this->processes);
     }
 }

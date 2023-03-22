@@ -34,6 +34,8 @@ class ProcessesTest extends TestCase
 
         $processes = new Processes($all, $multi);
 
+        $this->assertEquals($processes->get(), $processes->toArray());
+
         $this->assertFalse($processes->exists());
         $this->assertTrue($processes->exists($this->pid));
 

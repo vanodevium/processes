@@ -1,0 +1,6 @@
+{
+    "preset": "psr12",
+    "rules": {
+        "ordered_class_elements": true
+    }
+}
