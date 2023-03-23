@@ -1,6 +1,6 @@
 # Devium\Processes
 
-![Build status](https://img.shields.io/travis/vanodevium/processes/master)
+![Build status](https://img.shields.io/github/actions/workflow/status/vanodevium/processes/test.yaml)
 ![Latest Version](https://img.shields.io/packagist/v/devium/processes)
 ![License](https://img.shields.io/packagist/l/devium/processes)
 ![Downloads](https://img.shields.io/packagist/dt/devium/processes)
