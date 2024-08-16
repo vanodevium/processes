@@ -1,6 +1,12 @@
-# Devium\Processes
+# Stand With Ukraine 🇺🇦
 
-![Build status](https://img.shields.io/github/actions/workflow/status/vanodevium/processes/test.yaml)
+[![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/banner-direct-single.svg)](https://vshymanskyy.github.io/StandWithUkraine/)
+
+---
+
+# devium/processes
+
+![Build status](https://img.shields.io/github/actions/workflow/status/vanodevium/processes/ci.yaml)
 ![Latest Version](https://img.shields.io/packagist/v/devium/processes)
 ![License](https://img.shields.io/packagist/l/devium/processes)
 ![Downloads](https://img.shields.io/packagist/dt/devium/processes)
@@ -36,6 +42,7 @@ $newArrayOfProcesses = $processes->rescan()->get();
 ## Structure of processes array
 
 #### For windows
+
 ```json
 {
   "PID": {
@@ -47,6 +54,7 @@ $newArrayOfProcesses = $processes->rescan()->get();
 ```
 
 #### For unix-like systems
+
 ```json
 {
   "PID": {
@@ -62,10 +70,17 @@ $newArrayOfProcesses = $processes->rescan()->get();
 ```
 
 ## Testing
+
 ```sh
 composer test
 ```
 
 ## License
 
-The Devium\Processes package is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+**devium/processes** is open-sourced software licensed under the [MIT license](./LICENSE.md).
+
+[Vano Devium](https://github.com/vanodevium/)
+
+---
+
+Made with ❤️ in Ukraine
