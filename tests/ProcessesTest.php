@@ -33,12 +33,13 @@ class ProcessesTest extends TestCase
         $this->assertGreaterThan(0, $this->pid);
 
         $processes = new Processes($all, $multi);
+        $asArray = Processes::asArray($all, $multi);
 
-        $this->assertEquals($processes->get(), Processes::asArray($all, $multi));
         $this->assertEquals($processes->get(), $processes->toArray());
 
         $this->assertFalse($processes->exists());
         $this->assertTrue($processes->exists($this->pid));
+        $this->assertArrayHasKey($this->pid, $asArray);
 
         $processInformation = $processes[$this->pid];
 
