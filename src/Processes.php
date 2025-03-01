@@ -55,7 +55,7 @@ REGEXP;
 REGEXP;
 
     /**
-     * @var array<int|string, array<mixed>>
+     * @var array<int|string, array>
      */
     private $processes = [];
 
@@ -84,6 +84,32 @@ REGEXP;
     }
 
     /**
+     * @param null|bool $all
+     * @param null|bool $multi
+     * @return array
+     */
+    public static function asArray(?bool $all, ?bool $multi): array
+    {
+        return (new self($all, $multi))->get();
+    }
+
+    /**
+     * @return Processes
+     */
+    public static function all(): Processes
+    {
+        return new self(true);
+    }
+
+    /**
+     * @return Processes
+     */
+    public static function multi(): Processes
+    {
+        return new self(null, true);
+    }
+
+    /**
      * @return Processes
      */
     public function rescan(): Processes
@@ -92,7 +118,7 @@ REGEXP;
     }
 
     /**
-     * @return array<int|string, array<mixed>>
+     * @return array<int|string, array>
      */
     public function get(): array
     {
@@ -100,7 +126,7 @@ REGEXP;
     }
 
     /**
-     * @return array<int|string, array<mixed>>
+     * @return array<int|string, array>
      */
     public function toArray(): array
     {
@@ -142,10 +168,10 @@ REGEXP;
 
     /**
      * @param mixed $offset
-     * @return null|mixed
+     * @return null|array
      */
     #[\ReturnTypeWillChange]
-    public function offsetGet($offset)
+    public function offsetGet($offset): ?array
     {
         return $this->processes[$offset] ?? null;
     }
@@ -465,7 +491,7 @@ REGEXP;
     }
 
     /**
-     * @param array<int, array<mixed>> $processes
+     * @param array<int, array> $processes
      * @param string $type
      * @return void
      */
@@ -476,7 +502,7 @@ REGEXP;
     }
 
     /**
-     * @param array<int, array<mixed>> $processes
+     * @param array<int, array> $processes
      * @param int $pid
      * @param int $ppid
      * @param int $uid
@@ -507,7 +533,7 @@ REGEXP;
     }
 
     /**
-     * @param array<int, array<mixed>> $processes
+     * @param array<int, array> $processes
      * @param string $cmd
      * @param int $pid
      * @param mixed $val

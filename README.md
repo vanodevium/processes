@@ -32,11 +32,14 @@ $pid = 1234;
 $all = true;
 
 $processes = new Processes($all);
-$exists = $processes->exists($pid); // return true of false
-$arrayOfProcesses = $processes->get(); // return array of processes where key is PID
+$exists = $processes->exists($pid); // returns true of false
+$arrayOfProcesses = $processes->get(); // returns array of processes where key is PID
 
 // for rescanning processes, call rescan() method
 $newArrayOfProcesses = $processes->rescan()->get();
+
+// if you only need an array of processes, just use the static asArray():
+$listOfProcesses = Processes::asArray();
 ```
 
 ## Structure of processes array
